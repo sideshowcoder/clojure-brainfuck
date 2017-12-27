@@ -5,20 +5,20 @@
 
 (deftest operator-greater-than
   (testing "> initializes new elements at new indexes."
-    (is (= (op-greater-than [0] 0) [[0 0] 1])))
+    (is (= (op-greater-than {:memory [0] :ptr 0}) {:memory [0 0] :ptr 1})))
   (testing "> increments the index on already initialized elements."
-    (is (= (op-greater-than [0 0] 0) [[0 0] 1]))))
+    (is (= (op-greater-than {:memory [0 0] :ptr 0}) {:memory [0 0] :ptr 1}))))
 
 (deftest operator-less-than
   (let [ctx (vec (range 3))]
     (testing "< on index 0 does nothing."
-      (is (= (op-less-than ctx 0) [ctx 0])))
+      (is (= (op-less-than {:memory [0] :ptr 0}) {:memory [0] :ptr 0})))
     (testing "< on index larger than 0 decrements the index."
-      (is (= (op-less-than ctx 1) [ctx 0])))))
+      (is (= (op-less-than {:memory [0 0] :ptr 1}) {:memory [0 0] :ptr 0})))))
 
 (deftest operator-plus
   (testing "+ increments at index."
-    (is (= (op-plus [0] 0) [[1] 0]))))
+    (is (= (op-plus {:memory [0] :ptr 0}) {:memory [1] :ptr 0}))))
 
 (deftest operator-minus
   (testing "- decrements at index."

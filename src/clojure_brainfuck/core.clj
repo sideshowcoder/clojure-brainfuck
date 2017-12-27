@@ -13,47 +13,43 @@
 (def loop-start \[)
 (def loop-end \])
 
-(defn str->op
+(defn sym->op
   [s]
-  (get str-to-op-map s noop))
+  (get str-to-op-map s identity))
 
 (defn interpret
   [input]
-  (loop [pc 0
-         stack nil
-         ctx [0]
-         idx 0]
-    (if (>= pc (count input)) [pc stack ctx idx]
+  (let [ctx {:memory [0] :ptr 0}])
+  (loop [pc 0 stack nil ctx]
+    (if (>= pc (count input)) [pc stack ctx]
         (let [sym (get input pc)]
           (cond
-            (= sym loop-start) (recur (inc pc) (cons pc stack) ctx idx)
-            (= sym loop-end) (let [[pc stack ctx idx] (op-loop-end pc stack ctx idx)]
-                               (recur pc stack ctx idx))
-            :else (let [[ctx idx] ((str->op sym) ctx idx)]
-                    (recur (inc pc) stack ctx idx)))))))
-
-(defn noop
-  [ctx idx]
-  [ctx idx])
+            (= sym loop-start) (recur (inc pc) (cons pc stack) ctx)
+            (= sym loop-end) (let [[pc stack ctx idx] (op-loop-end pc stack ctx)]
+                               (recur pc stack ctx))
+            :else (let [[ctx idx] ((sym->op sym) ctx)]
+                    (recur (inc pc) stack ctx)))))))
 
 (defn op-greater-than
-  [ctx idx]
-  (let [new-idx (inc idx)
-        new-ctx (update-in ctx [new-idx] #(or % 0))]
-    [new-ctx new-idx]))
+  "Take a context with :memory and :ptr and move the pointer to the
+  right, initializing new fields along the way."
+  [ctx]
+  (let [ctx-new-ptr (update-in ctx [:ptr] inc)
+        ctx-new-mem (update-in ctx-new-ptr [:memory (:ptr ctx-new-ptr)] #(or % 0))]
+    ctx-new-mem))
 
 (defn op-less-than
-  [ctx idx]
-  (let [new-idx (if (> idx 0)
-                  (do
-                    (log/warn "ignore dec on index 0")
-                    (dec idx)) idx)]
-    [ctx new-idx]))
+  "Takes a context with :memory and :ptr and moves the pointer to the left, only
+  if :ptr is larger than 0"
+  [ctx]
+  (letfn [(safe-dec [x] (if (> x 0) (dec x) x))]
+    (update-in ctx [:ptr] safe-dec)))
 
 (defn op-plus
-  [ctx idx]
-  (let [new-ctx (update-in ctx [idx] inc)]
-    [new-ctx idx]))
+  "Takes a context with :memory and :ptr, and increments the value
+  at :ptr"
+  [ctx]
+  (update-in ctx [:memory (:ptr ctx)] inc))
 
 (defn op-minus
   [ctx idx]
