@@ -22,24 +22,22 @@
 
 (deftest operator-minus
   (testing "- decrements at index."
-    (is (= (op-minus [1] 0) [[0] 0]))))
+    (is (= (op-minus {:memory [1] :ptr 0}) {:memory [0] :ptr 0}))))
 
 (deftest operator-putchar
   (testing ". prints the charactar at index"
-    (let [out (with-out-str (op-dot [65] 0))]
-      (is (= "A" out)))))
+    (is (= "A" (with-out-str (op-dot {:memory [65] :ptr 0}))))))
 
 (deftest operator-getchar
   (testing ", reads a byte from the input storing at index in context."
-    (let [res (with-in-str "ABC" (op-comma [] 0))]
-      (is (= res [[65] 0])))))
+    (is (= (with-in-str "ABC" (op-comma {:memory [0] :ptr 0})) {:memory [65] :ptr 0}))))
 
 (def basic-no-loop-prog  "++>+++")
 
 (deftest no-loop-prog
   (testing "interpret a program without a loop."
-    (let [[_ _ ctx _] (interpret basic-no-loop-prog)]
-      (is (= ctx [2 3])))))
+    (let [[_ _ ctx] (interpret basic-no-loop-prog)]
+      (is (= {:memory [2 3] :ptr 1})))))
 
 (deftest loop-test
   (testing "loop start pushes to stack."
@@ -51,16 +49,16 @@
 
 (deftest op-loop-end-test
   (testing "inc pc past loop if cell is 0."
-    (is (= (op-loop-end 0 '(0) [0] 0) [1 nil [0] 0])))
+    (is (= (op-loop-end 0 '(0) {:memory [0] :ptr 0}) [1 nil {:memory [0] :ptr 0}])))
   (testing "it jumps to matching loop beginning on stack if cell is != 0"
-    (is (= (op-loop-end 2 '(0) [1] 0) [0 nil [1] 0]))))
+    (is (= (op-loop-end 2 '(0) {:memory [1] :ptr 0}) [0 nil {:memory [1] :ptr 0}]))))
 
 (def one-plus-two "+>++[<+>-]")
 
 (deftest looping-program-test
   (testing "can add 2 numbers."
-    (let [[_ _ ctx _] (interpret one-plus-two)]
-      (is (= ctx [3 0])))))
+    (let [[_ _ ctx] (interpret one-plus-two)]
+      (is (= ctx {:memory [3 0] :ptr 1})))))
 
 (def hello-world
   "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.")

@@ -3,32 +3,17 @@
             [clojure.string :as string])
   (:gen-class))
 
-(def str-to-op-map {\> op-greater-than
-                    \< op-less-than
-                    \+ op-plus
-                    \- op-minus
-                    \. op-dot
-                    \, op-comma})
+(defn ctx->cell
+  [ctx]
+  (get-in ctx [:memory (:ptr ctx)]))
 
-(def loop-start \[)
-(def loop-end \])
+(defn ctx->update-cell
+  [ctx fn]
+  (update-in ctx [:memory (:ptr ctx)] fn))
 
-(defn sym->op
-  [s]
-  (get str-to-op-map s identity))
-
-(defn interpret
-  [input]
-  (let [ctx {:memory [0] :ptr 0}])
-  (loop [pc 0 stack nil ctx]
-    (if (>= pc (count input)) [pc stack ctx]
-        (let [sym (get input pc)]
-          (cond
-            (= sym loop-start) (recur (inc pc) (cons pc stack) ctx)
-            (= sym loop-end) (let [[pc stack ctx idx] (op-loop-end pc stack ctx)]
-                               (recur pc stack ctx))
-            :else (let [[ctx idx] ((sym->op sym) ctx)]
-                    (recur (inc pc) stack ctx)))))))
+(defn ctx->assoc-cell
+  [ctx v]
+  (ctx->update-cell ctx #(identity v)))
 
 (defn op-greater-than
   "Take a context with :memory and :ptr and move the pointer to the
@@ -49,33 +34,66 @@
   "Takes a context with :memory and :ptr, and increments the value
   at :ptr"
   [ctx]
-  (update-in ctx [:memory (:ptr ctx)] inc))
+  (ctx->update-cell ctx inc))
 
 (defn op-minus
-  [ctx idx]
-  (let [new-ctx (update-in ctx [idx] dec)]
-    [new-ctx idx]))
+  "Takes a context with :memory and :ptr, and decrements the value
+  at :ptr"
+  [ctx]
+  (ctx->update-cell ctx dec))
 
 (defn op-putchar
-  [ctx idx]
-  (print (char (get ctx idx)))
-  [ctx idx])
+  "Print the current cell value as ASCII"
+  [ctx]
+  (print (char (ctx->cell ctx)))
+  ctx)
 
-(def op-dot op-putchar)
+(def op-dot op-putchar) ;; alias to reference the brainfuck symbol
 
 (defn op-getchar
-  [ctx idx]
-  (let [in-byte (first (.getBytes (read-line)))
-        new-ctx (assoc ctx idx in-byte)]
-    [new-ctx idx]))
+  "Store the first byte of the string read from STDIN at :ptr position"
+  [ctx]
+  (let [in-byte (first (.getBytes (read-line)))]
+    (ctx->assoc-cell ctx in-byte)))
 
-(def op-comma op-getchar)
+(def op-comma op-getchar) ;; alias to reference brainfuck symbol
 
 (defn op-loop-end
-  [pc stack ctx idx]
-  (if (zero? (get ctx idx))
-    (let [new-pc (inc pc)
-          [_ & new-stack] stack]
-      [new-pc new-stack ctx idx])
-    (let [[new-pc & new-stack] stack]
-      [new-pc new-stack ctx idx])))
+  "Handle GOTO by either jumping to beginning if cell is not 0, or popping the
+  stack if cell is 0"
+  [pc stack ctx]
+  (let [[head & tail] stack]
+    (if (zero? (ctx->cell ctx))
+      [(inc pc) tail ctx]
+      [head tail ctx])))
+
+(def str-to-op-map {\> op-greater-than
+                    \< op-less-than
+                    \+ op-plus
+                    \- op-minus
+                    \. op-dot
+                    \, op-comma})
+
+(def loop-start \[)
+(def loop-end \])
+
+(defn sym->op
+  [s]
+  (get str-to-op-map s identity))
+
+(defn interpret
+  [input]
+  (let [c {:memory [0] :ptr 0}]
+    (loop [pc 0 stack nil ctx c]
+      (if (>= pc (count input)) [pc stack ctx]
+          (let [sym (get input pc)]
+            (cond
+              (= sym loop-start) (recur (inc pc) (cons pc stack) ctx)
+              (= sym loop-end) (let [[pc stack ctx] (op-loop-end pc stack ctx)]
+                                 (recur pc stack ctx))
+              :else (recur (inc pc) stack ((sym->op sym) ctx))))))))
+
+(defn -main
+  [& args]
+  (let [input (slurp (first args))]
+    (interpret input)))
