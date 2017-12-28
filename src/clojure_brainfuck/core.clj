@@ -67,6 +67,34 @@
       [(inc pc) tail ctx]
       [head tail ctx])))
 
+(defn debug-println
+  [s]
+  (.println *err* s))
+
+(def cells-per-line 40)
+
+(defn pointer-line
+  ([offset] (pointer-line offset cells-per-line))
+  ([offset length] (string/join " " (assoc (vec (replicate cells-per-line " ")) offset "^"))))
+
+(defn print-line-with-pointer
+  [els ptr]
+  (let [slices (partition-all cells-per-line els)
+        curr-slice (nth slices (int (/ ptr cells-per-line)))
+        curr-offset (mod ptr cells-per-line)]
+    (debug-println (string/join " " curr-slice))
+    (debug-println (pointer-line curr-offset))))
+
+(defn print-ctx
+  [ctx]
+  (debug-println "Context:")
+  (print-line-with-pointer (:memory ctx) (:ptr ctx)))
+
+(defn print-prog-state
+  [pc input]
+  (debug-println "Program:")
+  (print-line-with-pointer (string/split input #"") pc))
+
 (def str-to-op-map {\> op-greater-than
                     \< op-less-than
                     \+ op-plus
@@ -82,18 +110,28 @@
   (get str-to-op-map s identity))
 
 (defn interpret
-  [input]
-  (let [c {:memory [0] :ptr 0}]
-    (loop [pc 0 stack nil ctx c]
+  [input & debug]
+  (let [initial-context {:memory [0] :ptr 0}]
+    (loop [pc 0 stack nil ctx initial-context]
       (if (>= pc (count input)) [pc stack ctx]
           (let [sym (get input pc)]
+            (when debug
+              (debug-println "Press Enter to continue")
+              (read-line)
+              (print-prog-state pc input)
+              (print-ctx ctx))
             (cond
               (= sym loop-start) (recur (inc pc) (cons pc stack) ctx)
               (= sym loop-end) (let [[pc stack ctx] (op-loop-end pc stack ctx)]
                                  (recur pc stack ctx))
               :else (recur (inc pc) stack ((sym->op sym) ctx))))))))
 
+(defn debug?
+  [args]
+  (= (first args) "-d"))
+
 (defn -main
   [& args]
-  (let [input (slurp (first args))]
-    (interpret input)))
+  (let [file-name (if (debug? args) (second args) (first args))]
+    (let [input (slurp file-name)]
+      (interpret input (debug? args)))))
