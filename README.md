@@ -13,6 +13,15 @@ $ lein run resources/hello-world.bf
 Hello World!
 ```
 
+to inspect what is going on you can step through one operation at a time via `-d` flag.
+
+```
+$ lein run -d resources/hello-world.bf
+Hello World!
+```
+
+this will print the program state to `STDERR`.
+
 ## License
 
 Copyright © 2017 Philipp Fehre
